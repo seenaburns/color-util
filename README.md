@@ -1,7 +1,7 @@
 color-util
 ============
 
-A color manipulation utility for the commandline. Given a color, it can modify the red,green,blue,hue,saturation,brightness properites and output the resulting color
+A color manipulation utility for the command-line. Given a color, it can modify the red,green,blue,hue,saturation,brightness properties and output the resulting color.
 
 
 Usage

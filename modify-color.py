@@ -5,6 +5,7 @@
 
 import sys
 import colorsys
+import argparse
 
 def error(reason):
     print(reason)
@@ -59,13 +60,42 @@ class Color(object):
 
         return hexv.upper()
 
+# Arugments
+# Get argument name, with accepted values array and default value
+def arg_get(arg_name, accepted, default):
+    # Get index
+    arg_index = 0
+    try:
+        arg_index = sys.argv.index(arg_name)
+    except ValueError:
+        return default
 
+    # Get value
+    arg_value = default
+    try:
+        arg_value = sys.argv[arg_index + 1]
+    except IndexError:
+        error("Value of '%s' not provided" % (arg_name))
+
+    arg_value = arg_value.upper()
+
+    # Check if value is in accepted list
+    if arg_value not in accepted:
+        error("'%s' not accepted for '%s', must be in %s" % (arg_value, arg_name, "[%s]" % ('|'.join(accepted))))
+
+    return arg_value
 
 if __name__ == "__main__":
     if len(sys.argv) <= 1 or sys.argv[1] in ['help', '--help']:
         print(__doc__)
         sys.exit()
 
-    c = Color(sys.argv[1])
-    # print(c.rgb_float)
-    print(c.hex)
+    oformat = arg_get('--out', ['HEX','RGB','HSB'], 'HEX')
+
+    c = Color(sys.argv[-1])
+
+    # print result
+    if oformat == 'HEX':
+        print(c.hex)
+    if oformat == 'RGB':
+        print(c.rgb_float)

@@ -57,6 +57,7 @@ run-tests () {
     test "$py modify-color.py '#0077ff'" "(0.0, 0.467, 1.0)" "valid hex conversion"
     test-error "$py modify-color.py '#0077ffaa'" "invalid hex length"
     test-error "$py modify-color.py '#00rr00'" "invalid hex chars"
+    test "$py modify-color.py '#0a7b29'" "#0A7B29" "hex converts to self"
 }
 
 run-tests python2

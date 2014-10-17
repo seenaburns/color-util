@@ -12,6 +12,8 @@ $ color-util --red 0 --green 255 "#FF0000"
 #00FF00
 ```
 
+Requires Python (tested in 2.7.8 and 3.4.2).
+
 Usage
 ---
 

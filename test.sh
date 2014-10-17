@@ -102,8 +102,12 @@ run-tests () {
     test "$py modify-color.py --in hsb --out hsb --hue +20% --saturation -50% --brightness 10% 100,100,50" "120,50,5" "hsb set"
     test "$py modify-color.py --out rgb --red -50 --green 10% --blue 10 ff5522" "205,8,10" "rgb set"
 
-
     test-error "$py modify-color.py --hue 200 --red 100 111111" "modify mode switch error"
+
+    # Read from stdin
+    test "echo '001122' | $py modify-color.py --out rgb" "0,17,34" "read from stdin"
+    test-error "echo '' | $py modify-color.py --out rgb" "read from stdin"
+    test "$py modify-color.py 000000 --red 100 --green 150 --blue 50 | $py modify-color.py --hue +10%" "#559632" "chaining"
 }
 
 run-tests python2

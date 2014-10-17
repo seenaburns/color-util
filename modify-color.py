@@ -260,7 +260,10 @@ class Color(object):
         
 
     def _hex_to_rgb(self, c):
-        # Remove hash if necessary
+        # Remove hash if necessary, extraneous whitespace
+        c = c.strip()
+        if len(c) == 0:
+            error('Invalid hex input: %s' % (c))
         if c[0] == '#':
             c = c[1:]
 
@@ -345,11 +348,15 @@ if __name__ == "__main__":
     if len(remaining_args) != 0:
         error('argument %s unrecognized' % (','.join(remaining_args)))
 
-    # Create color from remaining arguments
+    # Create color from remaining arguments or by reading stdin
     color_args = sys.argv[1:]
+    color_str = ''
     if len(color_args) == 0:
-        error("No color provided")
-    color_str = ','.join(color_args)
+        color_str = sys.stdin.read()
+    else:
+        color_str = ','.join(color_args)
+    if len(color_str) == 0:
+        error("No color provided (either stdin or as argument)")
 
     # Filter any unacceptable characters for non-hex iformats
     if iformat != 'hex':

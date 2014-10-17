@@ -37,7 +37,7 @@ test-error() {
     then
         echo "[ FAIL ] $testnum $description"
         echo "  output  : $output"
-        echo "  expected: ${3-'1'}"
+        echo "  expected: ${3-1}"
     else
         echo "[ PASS ] $testnum $description"
     fi
@@ -98,6 +98,12 @@ run-tests () {
 
     # Test setting
     test "$py modify-color.py --in hsb --out hsb --hue 200 --saturation 50 --brightness 50 0,0,0" "200,50,50" "hsb set"
+    test "$py modify-color.py --in hsb --out hsb --hue +20 --saturation +50 --brightness -10 100,100,50" "120,100,40" "hsb set"
+    test "$py modify-color.py --in hsb --out hsb --hue +20% --saturation -50% --brightness 10% 100,100,50" "120,50,5" "hsb set"
+    test "$py modify-color.py --out rgb --red -50 --green 10% --blue 10 ff5522" "205,8,10" "rgb set"
+
+
+    test-error "$py modify-color.py --hue 200 --red 100 111111" "modify mode switch error"
 }
 
 run-tests python2

@@ -7,8 +7,10 @@ Usage:
     modify-color [options] [<modifier> <amount>] color
 
 Modifiers:
-    Modifiers are specified by a type followed by an amount. Sequential
-    modifiers are applied in the order they are specified.
+    Modifiers are specified by a type followed by an amount. Order is not
+    guaranteed, so if it is required, pipe to another call. Also because 
+    modifying hsb and rgb can interfere with each other when converting,
+    only modify red,green,blue or hue,saturation,brightness in one call
     type:
       -h, --hue
       -s, --saturation
@@ -118,7 +120,6 @@ class Color(object):
 
         # Derive hsb/rgb from the other
         self.flush(self.input_mode)
-        self.modify_mode = self.input_mode
 
     def __str__(self):
         return "[%s, %s, %s, %s, %s, %s, %s]" % (self.red,self.green,self.blue,self.hue,self.saturation,self.brightness,self.hex)
@@ -127,7 +128,10 @@ class Color(object):
         return self.__str__()
 
     def modify(self, mtype, amount):
-        self.modify_mode = 'rgb' if mtype in ['red', 'blue', 'green'] else 'hsb'
+        new_mode = 'rgb' if mtype in ['red', 'blue', 'green'] else 'hsb'
+        if new_mode != self.modify_mode and self.modify_mode != '':
+            error("Cannot modify both [red|green|blue] and [hue|saturation|brightness] in one call, see --help")
+        self.modify_mode = new_mode
 
         # Apply changes to values
         operation = self.construct_modify_operation(amount)
@@ -174,6 +178,8 @@ class Color(object):
     def flush(self, mode):
         # if mode is rgb, update hsb values from rgb
         # if mode is hue, update rgb values from hsb
+        if mode == '':
+            mode = self.input_mode
         if mode == 'rgb':
             h, s, b = colorsys.rgb_to_hsv(self.red/255.0, self.green/255.0, self.blue/255.0)
             self.hue = self.float_to_int(h, 'hue') 
@@ -186,7 +192,17 @@ class Color(object):
             self.blue = self.float_to_int(b, 'blue')
         else:
             raise Exception("mode not recognized")
-        
+
+        self.apply_bounds()
+
+    def apply_bounds(self):
+        bound = lambda x,minx,maxx: min(max(minx,x), maxx)
+        self.red = bound(self.red, 0, 255)
+        self.green = bound(self.green, 0, 255)
+        self.blue = bound(self.blue, 0, 255)
+        self.hue = bound(self.hue, 0, 360)
+        self.saturation = bound(self.saturation, 0, 100)
+        self.brightness = bound(self.brightness, 0, 100)
 
 
     @property
@@ -223,7 +239,8 @@ class Color(object):
         return (round(a, 2), round(b, 2), round(c, 2))
 
     def float_to_int(self, v, vtype):
-        fti = lambda x: int(round(v*x))
+        bounded = lambda x: min(max(x, 0),1)
+        fti = lambda x: int(round( bounded(v) * x))
         if vtype == 'hue':
             return fti(360.0)
         elif vtype in ['saturation', 'brightness']:

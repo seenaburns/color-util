@@ -6,6 +6,16 @@ A color manipulation utility for the commandline.
 Usage:
     modify-color [options] [<modifier> <amount>] color
 
+Examples:
+    echo "#001122" | modify-color --out hsb --brightness +10%
+    modify-color --in rgb --out rgb_float 125,255,50
+    modify-color --red 100 FF3377
+    modify-color --hue 360 --brightness 100 --saturation 50 "#000000" | modify-color --red +10%
+
+Color:
+    Format specified by --in, can be passed in as an argument or through stdin.
+    See Examples.
+
 Modifiers:
     Modifiers are specified by a type followed by an amount. Order is not
     guaranteed, so if it is required, pipe to another call. Also because 

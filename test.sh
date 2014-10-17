@@ -91,6 +91,12 @@ run-tests () {
     # Equivalence conversion
     test "$py modify-color.py --out rgb_float 194E2A" "0.1,0.31,0.16" "hex -> rgb_float"
     test "$py modify-color.py --out hsb 194E2A" "139,68,31" "hex -> hsb"
+
+    # Normalize
+    test "$py modify-color.py --in rgb_float 1.0,0,0" "#FF0000" "normalize test"
+
+    # Test setting
+    test "$py modify-color.py --in hsb --out hsb --hue 200 --saturation 50 --brightness 50 0,0,0" "200,50,50" "hsb set"
 }
 
 run-tests python2

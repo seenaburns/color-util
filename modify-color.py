@@ -18,8 +18,8 @@ Modifiers:
       --blue
 
     amount examples:
-      note: uses --in to distinguish when to use floats rather than 0-255
-        (e.g. --in rgb_float --red +10 0,0,0 would return 1,0,0 not 11)
+      note: n will always affect rgb/hue not the float version
+        e.g. --red +10 for rgb 0.5,0,0 will be 138,0,0 not 1.0,0,0
       +n    add
       -n    sub
       +n%   add percent
@@ -60,38 +60,73 @@ def error(reason):
 class Color(object):
     """Color object, stores colors internally as RGB float"""
     def __init__(self, color_str, color_format="hex"):
+        # Default
         self._rgb = (0, 0, 0)
+        
         if color_format == "hex":
             self._rgb = self._hex_to_rgb(color_str)
-        if color_format == "rgb" or color_format == "rgb_float":
+        elif 'rgb' in color_format:
             # In format r,g,b
+            is_float = color_format == 'rgb_float'
             try:
-                # Remove extra characters if any
-                color_str = ''.join([char for char in color_str if char in '0123456789.,'])
-                r, g, b = [float(x) for x in color_str.split(',')]
-                if color_format == 'rgb':
-                    r = int(r)/255.0
-                    g = int(g)/255.0
-                    b = int(b)/255.0
-                r, g, b = self._apply_float_bounds((r,g,b))
+                # Extract
+                r, g, b = [x for x in color_str.split(',')]
+                r = self.normalize(r, 'red', is_float)
+                g = self.normalize(g, 'green', is_float)
+                b = self.normalize(b, 'blue', is_float)
                 self._rgb = (r, g, b)
             except ValueError:
                 error("Could not parse %s %s" % (color_format, color_str))
-        if color_format == "hsb" or color_format == "hsb_float":
+        elif 'hsb' in color_format:
             # In format h,s,b
+            is_float = color_format == 'hsb_float'
             try:
-                # Remove extra characters if any
-                color_str = ''.join([char for char in color_str if char in '0123456789.,'])
-                h, s, b = [float(x) for x in color_str.split(',')]
-                if color_format == 'hsb':
-                    h = int(h)/360.0
-                    s = int(s)/100.0
-                    b = int(b)/100.0
-                h, s, b = self._apply_float_bounds((h, s, b))
+                h, s, b = [x for x in color_str.split(',')]
+                h = self.normalize(h, 'hue', is_float)
+                s = self.normalize(s, 'saturation', is_float)
+                b = self.normalize(b, 'brightness', is_float)
                 self._rgb = colorsys.hsv_to_rgb(h,s,b)
             except ValueError:
                 error("Could not parse %s %s" % (color_format, color_str))
 
+    def modify(self, mtype, amount):
+        # Define the operation
+        operation = lambda x: x
+        amount_value = float(''.join([char for char in amount if char in '0123456789.']))
+        if amount[0] == '+':
+            # add
+            if amount[-1] == '%':
+                operation = lambda x: x * (1+(amount_value)/100.0)
+            else:
+                operation = lambda x: x + amount_value
+        elif amount[0] == '-':
+            # sub
+            if amount[-1] == '%':
+                operation = lambda x: x * (1-(amount_value)/100.0)
+            else:
+                operation = lambda x: x - amount_value
+        else:
+            # set
+            if amount[-1] == '%':
+                operation = lambda x: amount_value
+            else:
+                operation = lambda x: x * (amount_value/100.0)
+
+        norm_operation = lambda x, y: self.normalize(operation(x), y)
+
+        # Apply operation
+        if mtype == 'hue':
+            self.hue = norm_operation(self.hue*360, 'hue')
+        if mtype == 'saturation':
+            self.saturation = norm_operation(self.saturation*100, 'saturation')
+        if mtype == 'brightness':
+            self.brightness = norm_operation(self.brightness*100, 'brightness')
+        if mtype == 'red':
+            self.red = norm_operation(self.red*255, 'red')
+        if mtype == 'green':
+            self.green = norm_operation(self.green*255, 'green')
+        if mtype == 'blue':
+            self.blue = norm_operation(self.blue*255, 'blue')
 
     @property
     def rgb_float(self):
@@ -102,6 +137,10 @@ class Color(object):
         r, g, b = self._rgb
         h, s, b = colorsys.rgb_to_hsv(r, g, b)
         return (h, s, b)
+    @hsb_float.setter
+    def hsb_float(self,value):
+        h, s, b = value
+        self._rgb = colorsys.hsv_to_rgb(h, s, b)
 
     @property
     def rgb(self):
@@ -119,24 +158,92 @@ class Color(object):
         r, g, b = [self._float_to_hex(x) for x in self._rgb]
         return '#' + r + g + b
 
-    def _apply_float_bounds(self, color_tuple):
-        color_list = list(color_tuple)
-        for i in range(len(color_list)):
-            c = float(color_list[i])
-            if c > 1.0:
-                color_list[i] = 1.0
-            elif c < 0:
-                color_list[i] = 0
- 
-        return tuple(color_list)
-        
+    # All individual properties are floats
+    @property
+    def hue(self):
+        return self.hsb_float[0]
+    @hue.setter
+    def hue(self, value):
+        h, s, b = self.hsb_float
+        h = self.apply_float_bounds(value)
+        self.hsb_float = (h, s, b)
 
+    @property
+    def saturation(self):
+        return self.hsb_float[1]
+    @saturation.setter
+    def saturation(self, value):
+        h, s, b = self.hsb_float
+        s = self.apply_float_bounds(value)
+        self.hsb_float = (h, s, b)
+
+    @property
+    def brightness(self):
+        return self.hsb_float[2]
+    @brightness.setter
+    def brightness(self, value):
+        h, s, b = self.hsb_float
+        b = self.apply_float_bounds(value)
+        self.hsb_float = (h, s, b)
+
+    @property
+    def red(self):
+        return self.rgb_float[0]
+    @red.setter
+    def red(self, value):
+        r, g, b = self.rgb_float
+        r = self.apply_float_bounds(value)
+        self._rgb = (r, g, b)
+
+    @property
+    def green(self):
+        return self.rgb_float[1]
+    @green.setter
+    def green(self, value):
+        r, g, b = self.rgb_float
+        g = self.apply_float_bounds(value)
+        self._rgb = (r, g, b)
+    
+    @property
+    def blue(self):
+        return self.rgb_float[2]
+    @blue.setter
+    def blue(self, value):
+        r, g, b = self.rgb_float
+        b = self.apply_float_bounds(value)
+        self._rgb = (r, g, b)
+        
     def str(self, color_tuple):
         return ('%s,%s,%s' % (color_tuple[0], color_tuple[1], color_tuple[2]))
 
     def round_floats(self, color_tuple):
         a, b, c = color_tuple
         return (round(a, 2), round(b, 2), round(c, 2))
+
+    def normalize(self, v, vtype, is_float=False):
+        # Normalize, e.g. for hue int(hue)/360
+        # Skip floats
+        if is_float:
+            return self.apply_float_bounds(float(v))
+
+        # Floats about 1 not allowed, e.g. no 45.3
+        new_v = int(v)
+        if vtype == 'hue':
+            new_v /= 360.0
+        elif vtype in ['brightness', 'saturation']:
+            new_v /= 100.0
+        elif vtype in ['red', 'blue', 'green']:
+            new_v /= 255.0
+        return self.apply_float_bounds(new_v)
+
+    def apply_float_bounds(self, v):
+        v = float(v)
+        if v > 1.0:
+            return 1.0
+        elif v < 0:
+            return 0.0
+        return v
+        
 
     def _hex_to_rgb(self, c):
         # Remove hash if necessary
@@ -224,13 +331,25 @@ if __name__ == "__main__":
     if len(remaining_args) != 0:
         error('argument %s unrecognized' % (','.join(remaining_args)))
 
-    # Create color
+    # Create color from remaining arguments
     color_args = sys.argv[1:]
     if len(color_args) == 0:
         error("No color provided")
-    c = Color(','.join(color_args), iformat)
+    color_str = ','.join(color_args)
+
+    # Filter any unacceptable characters for non-hex iformats
+    if iformat != 'hex':
+        color_str = ''.join([char for char in color_str if char in '0123456789.,'])
+    # Create color object
+    c = Color(color_str, iformat)
 
     # Apply modifiers
+    mod_mapping = {'-h': 'hue', '-s': 'saturation', '-b': 'brightness'}
+    for m in accepted_modifiers:
+        if '--' in m:
+            mod_mapping[m] = m[2:]
+    for m in modifiers:
+        c.modify(mod_mapping[m[0]], m[1])
 
     # print result
     format_mapping = {'hex': c.hex,

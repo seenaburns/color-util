@@ -70,16 +70,17 @@ class Color(object):
         self.hue = 0
         self.saturation = 0
         self.brightness = 0
-        # If input mode is rgb, derive hsb from rgb
+        # If input/modify mode is rgb, derive hsb from rgb
         # otherwise derive rgb from hsb
         self.input_mode = 'rgb'
+        self.modify_mode = ''
 
         # Input hex
         if color_format == "hex":
             r, g, b = self._hex_to_rgb(color_str)
-            self.red = r
-            self.green = g
-            self.blue = b
+            self.red = self.float_to_int(r, 'red')
+            self.green = self.float_to_int(g, 'green')
+            self.blue = self.float_to_int(b, 'blue')
 
         # Input rgb/rgb_float
         elif 'rgb' in color_format:
@@ -111,25 +112,42 @@ class Color(object):
                     b = self.float_to_int(b, 'brightness')
                 self.hue = h
                 self.saturation = s
-                self.brightness =b
+                self.brightness = b
             except ValueError:
                 error("Could not parse %s %s" % (color_format, color_str))
 
         # Derive hsb/rgb from the other
-        if self.input_mode == 'rgb':
-            self.hue, self.saturation, self.brightness = colorsys.rgb_to_hsv(self.red, self.green, self.blue)
-        else:
-            self.red, self.green, self.blue = colorsys.hsv_to_rgb(self.hue, self.saturation, self.brightness)
-        
+        self.flush(self.input_mode)
+        self.modify_mode = self.input_mode
 
     def __str__(self):
-        return "%s,%s,%s,%s,%s,%s,%s" % (self.red,self.green,self.blue,self.hue,self.saturation,self.brightness,self.hex)
+        return "[%s, %s, %s, %s, %s, %s, %s]" % (self.red,self.green,self.blue,self.hue,self.saturation,self.brightness,self.hex)
 
     def __repr__(self):
         return self.__str__()
 
     def modify(self, mtype, amount):
-        # Define the operation
+        self.modify_mode = 'rgb' if mtype in ['red', 'blue', 'green'] else 'hsb'
+
+        # Apply changes to values
+        operation = self.construct_modify_operation(amount)
+        
+        # Apply operation to values
+        if mtype == 'hue':
+            self.hue = operation(self.hue)
+        if mtype == 'saturation':
+            self.saturation = operation(self.saturation)
+        if mtype == 'brightness':
+            self.brightness = operation(self.brightness)
+        if mtype == 'red':
+            self.red = operation(self.red)
+        if mtype == 'green':
+            self.green = operation(self.green)
+        if mtype == 'blue':
+            self.blue = operation(self.blue)
+
+    def construct_modify_operation(self, amount):
+        # construct and return an operation function based on amount
         operation = lambda x: x
         amount_value = float(''.join([char for char in amount if char in '0123456789.']))
         if amount[0] == '+':
@@ -147,54 +165,53 @@ class Color(object):
         else:
             # set
             if amount[-1] == '%':
-                operation = lambda x: amount_value
-            else:
                 operation = lambda x: x * (amount_value/100.0)
+            else:
+                operation = lambda x: amount_value
 
-        norm_operation = lambda x, y: self.normalize(operation(x), y)
+        return operation
 
-        # Apply operation
-        if mtype == 'hue':
-            self.hue = norm_operation(self.hue*360, 'hue')
-        if mtype == 'saturation':
-            self.saturation = norm_operation(self.saturation*100, 'saturation')
-        if mtype == 'brightness':
-            self.brightness = norm_operation(self.brightness*100, 'brightness')
-        if mtype == 'red':
-            self.red = norm_operation(self.red*255, 'red')
-        if mtype == 'green':
-            self.green = norm_operation(self.green*255, 'green')
-        if mtype == 'blue':
-            self.blue = norm_operation(self.blue*255, 'blue')
+    def flush(self, mode):
+        # if mode is rgb, update hsb values from rgb
+        # if mode is hue, update rgb values from hsb
+        if mode == 'rgb':
+            h, s, b = colorsys.rgb_to_hsv(self.red/255.0, self.green/255.0, self.blue/255.0)
+            self.hue = self.float_to_int(h, 'hue') 
+            self.saturation = self.float_to_int(s, 'saturation')
+            self.brightness = self.float_to_int(b, 'brightness')
+        elif mode == 'hsb':
+            r, g, b = colorsys.hsv_to_rgb(self.hue/360.0, self.saturation/100.0, self.brightness/100.0)
+            self.red = self.float_to_int(r, 'red')
+            self.green = self.float_to_int(g, 'green')
+            self.blue = self.float_to_int(b, 'blue')
+        else:
+            raise Exception("mode not recognized")
+        
 
-    @property
-    def rgb_float(self):
-        return self.red, self.green, self.blue
-
-    @property
-    def hsb_float(self):
-        r, g, b = self.red, self.blue, self.green
-        h, s, b = colorsys.rgb_to_hsv(r, g, b)
-        return (h, s, b)
-    @hsb_float.setter
-    def hsb_float(self,value):
-        h, s, b = value
-        self._rgb = colorsys.hsv_to_rgb(h, s, b)
 
     @property
     def rgb(self):
-        r, g, b = self.red, self.blue, self.green
-        return (int(round(r*255)), int(round(g*255)), int(round(b*255)))
+        self.flush(self.modify_mode)
+        return int(self.red), int(self.green), int(self.blue)
+
+    @property
+    def rgb_float(self):
+        return tuple([round(x/255.0,2) for x in self.rgb])
 
     @property
     def hsb(self):
-        h, s, b = self.hsb_float
-        return (int(round(h*360)), int(round(s*100)), int(round(b*100)))
+        self.flush(self.modify_mode)
+        return int(self.hue), int(self.saturation), int(self.brightness)
+
+    @property
+    def hsb_float(self):
+        h, s, b = self.hsb
+        return tuple([round(x, 2) for x in (h/360.0, s/100.0, b/100.0)])
 
     @property
     def hex(self):
         # Convert from float to hex
-        r, g, b = [self._float_to_hex(x/255.0) for x in [self.red, self.blue, self.green]]
+        r, g, b = [self._float_to_hex(x/255.0) for x in self.rgb]
         return '#' + r + g + b
 
         
@@ -204,6 +221,17 @@ class Color(object):
     def round_floats(self, color_tuple):
         a, b, c = color_tuple
         return (round(a, 2), round(b, 2), round(c, 2))
+
+    def float_to_int(self, v, vtype):
+        fti = lambda x: int(round(v*x))
+        if vtype == 'hue':
+            return fti(360.0)
+        elif vtype in ['saturation', 'brightness']:
+            return fti(100.0)
+        elif vtype in ['red', 'blue', 'green']:
+            return fti(255.0)
+        else:
+            raise Exception("Unknown vtype %s" % (vtype))
 
     def normalize(self, v, vtype, is_float=False):
         # Normalize, e.g. for hue int(hue)/360

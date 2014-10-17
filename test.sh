@@ -13,6 +13,7 @@ test () {
     if [[ $expected != $output ]]
     then
         echo "[ FAIL ] $testnum $description"
+        echo "  cmd: \"$cmd\""
         echo "  output  : $output"
         echo "  expected: $expected"
     else

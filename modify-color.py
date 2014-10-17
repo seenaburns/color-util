@@ -1,11 +1,47 @@
 #!/bin/python
 """modify-color
 ------------
+A color manipulation utility for the commandline.
+
+Usage:
+    modify-color [options] [<modifier> <amount>] color
+
+Modifiers:
+    Modifiers are specified by a type followed by an amount. Sequential
+    modifiers are applied in the order they are specified.
+    type:
+      -h, --hue
+      -s, --saturation
+      -b, --brightness
+      --red
+      --green
+      --blue
+
+    amount examples:
+      note: uses --in to distinguish when to use floats rather than 0-255
+        (e.g. --in rgb_float --red +10 0,0,0 would return 1,0,0 not 11)
+      +n    add
+      -n    sub
+      +n%   add percent
+      -n%   sub percent
+      n     set value
+      n%    set percent (10% of 255 -> 25.5)
+
+Options:
+    --out [hex|rgb|hsb|rgb_float|hsb_float]
+        specify what format to return the output color
+        rgb and hsb by default a 3-element tuple with values from 0-255
+        default: hex
+
+    --in [hex|rgb|hsb|rgb_float|hsb_float]
+        specify what format the input color is being given
+        rgb and hsb by default a 3-element tuple with values from 0-255
+        default: hex
 """
 
 import sys
 import colorsys
-import argparse
+import re
 
 def error(reason):
     print(reason)
@@ -13,9 +49,9 @@ def error(reason):
 
 class Color(object):
     """Color object, stores colors internally as RGB float"""
-    def __init__(self, color_str, color_format="HEX"):
+    def __init__(self, color_str, color_format="hex"):
         self._rgb = (0, 0, 0)
-        if color_format == "HEX":
+        if color_format == "hex":
             self._rgb = self._hex_to_rgb(color_str)
 
     @property
@@ -61,8 +97,10 @@ class Color(object):
         return hexv.upper()
 
 # Arugments
-# Get argument name, with accepted values array and default value
-def arg_get(arg_name, accepted, default):
+# Find arg_name in sys.argv and it's value
+# return if accept(arg_value) is true, otherwise fail
+# also pop arg_name/arg_value off of sys.argv
+def arg_get(arg_name, accept, default):
     # Get index
     arg_index = 0
     try:
@@ -77,11 +115,15 @@ def arg_get(arg_name, accepted, default):
     except IndexError:
         error("Value of '%s' not provided" % (arg_name))
 
-    arg_value = arg_value.upper()
+    arg_value = arg_value.lower()
 
     # Check if value is in accepted list
-    if arg_value not in accepted:
-        error("'%s' not accepted for '%s', must be in %s" % (arg_value, arg_name, "[%s]" % ('|'.join(accepted))))
+    if not accept(arg_value):
+        error("'%s' not accepted as a value for '%s', see --help" % (arg_value, arg_name))
+
+    # Remove args from list
+    sys.argv.pop(arg_index)
+    sys.argv.pop(arg_index)
 
     return arg_value
 
@@ -90,12 +132,31 @@ if __name__ == "__main__":
         print(__doc__)
         sys.exit()
 
-    oformat = arg_get('--out', ['HEX','RGB','HSB'], 'HEX')
+    # Get formats args
+    formats = ['hex','rgb','hsb','rgb_float','hsb_float']
+    formats_accept = lambda x: x in formats;
+    oformat = arg_get('--out', lambda x: x in formats, 'hex')
+    iformat = arg_get('--in', lambda x: x in formats, 'hex')
+
+    # Get modifiers args
+    accepted_modifiers=['-h','--hue','-s','--saturation','-b','--brightness','--red','--green','--blue']
+    modifier_accept = lambda x: re.search('^[\+\-]{0,1}[0-9\.]{1,}[%]{0,1}$', x) != None
+    modifiers = []
+    args = [x for x in sys.argv]
+    for arg in args:
+        if arg not in accepted_modifiers:
+            continue
+        modifiers.append((arg, arg_get(arg, modifier_accept, '+0')))
+
+    # If flags remain error
+    remaining_args = [x for x in sys.argv if x[0] == '-']
+    if len(remaining_args) != 0:
+        error('argument %s unrecognized' % (','.join(remaining_args)))
 
     c = Color(sys.argv[-1])
 
     # print result
-    if oformat == 'HEX':
+    if oformat == 'hex':
         print(c.hex)
-    if oformat == 'RGB':
+    if oformat == 'rgb':
         print(c.rgb_float)

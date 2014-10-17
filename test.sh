@@ -22,6 +22,7 @@ test () {
 
 # Test to see if exit code of cmd (arg 1) is 1
 # arg 2: optional documentation
+# arg 3: optionally set to 0 if want expected to not be an error
 test-error() {
     testnum=$[ $testnum + 1]
 
@@ -29,12 +30,13 @@ test-error() {
     description=${2-""}
 
     eval $cmd >/dev/null
+    output=$(echo $?)
 
-    if [[ $? != "1" ]]
+    if [[ $output != ${3-"1"} ]]
     then
         echo "[ FAIL ] $testnum $description"
-        echo "  output  : 0"
-        echo "  expected: 1"
+        echo "  output  : $output"
+        echo "  expected: ${3-'1'}"
     else
         echo "[ PASS ] $testnum $description"
     fi
@@ -54,10 +56,32 @@ run-tests () {
     test "$py modify-color.py | head -1" "modify-color" "docs"
 
     # Hex conversion
-    test "$py modify-color.py '#0077ff'" "(0.0, 0.467, 1.0)" "valid hex conversion"
+    test "$py modify-color.py --out rgb '#0077ff'" "(0.0, 0.467, 1.0)" "valid hex conversion"
     test-error "$py modify-color.py '#0077ffaa'" "invalid hex length"
     test-error "$py modify-color.py '#00rr00'" "invalid hex chars"
-    test "$py modify-color.py '#0a7b29'" "#0A7B29" "hex converts to self"
+    test "$py modify-color.py 0a7b29" "#0A7B29" "hex converts to self"
+
+    # Argument parsing
+    # Acceptable
+    test-error "$py modify-color.py -h +10 000000" "arg success" 0
+    test-error "$py modify-color.py -s +10% 000000" "arg success" 0
+    test-error "$py modify-color.py -b -10 000000" "arg success" 0
+    test-error "$py modify-color.py --hue -10% 000000" "arg success" 0
+    test-error "$py modify-color.py --saturation 10 000000" "arg success" 0
+    test-error "$py modify-color.py --brightness 10% 000000" "arg success" 0
+    test-error "$py modify-color.py --red +10 000000" "arg success" 0
+    test-error "$py modify-color.py --green +10 000000" "arg success" 0
+    test-error "$py modify-color.py --blue +10 000000" "arg success" 0
+    test-error "$py modify-color.py --red +10 --blue -10 --green +10% 000000" "arg success" 0
+
+    # Not acceptable
+    test-error "$py modify-color.py --out x  000000" "arg error"
+    test-error "$py modify-color.py --out --in hsv  000000" "arg error"
+    test-error "$py modify-color.py -h ++10  000000" "arg error"
+    test-error "$py modify-color.py -h +10%%  000000" "arg error"
+    test-error "$py modify-color.py -h +a  000000" "arg error"
+    test-error "$py modify-color.py -hx +a  000000" "arg error"
+
 }
 
 run-tests python2

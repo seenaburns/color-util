@@ -54,13 +54,7 @@ run-tests () {
 
     # Docs
     test "$py modify-color.py | head -1" "modify-color" "docs"
-
-    # Hex conversion
-    test "$py modify-color.py --out rgb '#0077ff'" "(0.0, 0.467, 1.0)" "valid hex conversion"
-    test-error "$py modify-color.py '#0077ffaa'" "invalid hex length"
-    test-error "$py modify-color.py '#00rr00'" "invalid hex chars"
-    test "$py modify-color.py 0a7b29" "#0A7B29" "hex converts to self"
-
+    
     # Argument parsing
     # Acceptable
     test-error "$py modify-color.py -h +10 000000" "arg success" 0
@@ -82,6 +76,21 @@ run-tests () {
     test-error "$py modify-color.py -h +a  000000" "arg error"
     test-error "$py modify-color.py -hx +a  000000" "arg error"
 
+    # Hex conversion
+    test "$py modify-color.py --out rgb_float '#0077ff'" "0.0,0.47,1.0" "valid hex conversion"
+    test-error "$py modify-color.py '#0077ffaa'" "invalid hex length"
+    test-error "$py modify-color.py '#00rr00'" "invalid hex chars"
+
+    # Self conversions
+    test "$py modify-color.py 0a7b29" "#0A7B29" "hex converts to self"
+    test "$py modify-color.py --in hsb --out hsb 100,20,30" "100,20,30" "hsb converts to self"
+    test "$py modify-color.py --in rgb --out rgb 100,20,30" "100,20,30" "rgb converts to self"
+    test "$py modify-color.py --in rgb_float --out rgb_float 0.1,0.2,0.3" "0.1,0.2,0.3" "rgb_float converts to self"
+    test "$py modify-color.py --in hsb_float --out hsb_float 0.1,0.2,0.3" "0.1,0.2,0.3" "hsb_float converts to self"
+
+    # Equivalence conversion
+    test "$py modify-color.py --out rgb_float 194E2A" "0.1,0.31,0.16" "hex -> rgb_float"
+    test "$py modify-color.py --out hsb 194E2A" "139,68,31" "hex -> hsb"
 }
 
 run-tests python2

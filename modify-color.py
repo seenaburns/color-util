@@ -30,13 +30,23 @@ Modifiers:
 Options:
     --out [hex|rgb|hsb|rgb_float|hsb_float]
         specify what format to return the output color
-        rgb and hsb by default a 3-element tuple with values from 0-255
         default: hex
 
     --in [hex|rgb|hsb|rgb_float|hsb_float]
         specify what format the input color is being given
-        rgb and hsb by default a 3-element tuple with values from 0-255
         default: hex
+
+    formats:
+      hex: #rrggbb
+      rgb: 3 element tuple ranging from 0-255
+        example: 0,255,100
+      hsb: 3 element tuple, hue from 0-360, saturation/brightness from 0-100
+        example: 360,100,50
+      rgb_float: 3 element tuple, from 0.0-1.0
+        example: 0.0, 1.0, 0.5
+      hsb_float: 3 element tuple: from 0.0-1.0, note hue = 1.0 corresponds to hue = 360
+        example: 1.0, 0.5, 0.2
+            
 """
 
 import sys
@@ -53,19 +63,80 @@ class Color(object):
         self._rgb = (0, 0, 0)
         if color_format == "hex":
             self._rgb = self._hex_to_rgb(color_str)
+        if color_format == "rgb" or color_format == "rgb_float":
+            # In format r,g,b
+            try:
+                # Remove extra characters if any
+                color_str = ''.join([char for char in color_str if char in '0123456789.,'])
+                r, g, b = [float(x) for x in color_str.split(',')]
+                if color_format == 'rgb':
+                    r = int(r)/255.0
+                    g = int(g)/255.0
+                    b = int(b)/255.0
+                r, g, b = self._apply_float_bounds((r,g,b))
+                self._rgb = (r, g, b)
+            except ValueError:
+                error("Could not parse %s %s" % (color_format, color_str))
+        if color_format == "hsb" or color_format == "hsb_float":
+            # In format h,s,b
+            try:
+                # Remove extra characters if any
+                color_str = ''.join([char for char in color_str if char in '0123456789.,'])
+                h, s, b = [float(x) for x in color_str.split(',')]
+                if color_format == 'hsb':
+                    h = int(h)/360.0
+                    s = int(s)/100.0
+                    b = int(b)/100.0
+                h, s, b = self._apply_float_bounds((h, s, b))
+                self._rgb = colorsys.hsv_to_rgb(h,s,b)
+            except ValueError:
+                error("Could not parse %s %s" % (color_format, color_str))
+
 
     @property
     def rgb_float(self):
-        r, g, b = self._rgb
+        return self._rgb
 
-        return (round(r,3), round(g, 3), round(b, 3))
+    @property
+    def hsb_float(self):
+        r, g, b = self._rgb
+        h, s, b = colorsys.rgb_to_hsv(r, g, b)
+        return (h, s, b)
+
+    @property
+    def rgb(self):
+        r, g, b = self._rgb
+        return (int(round(r*255)), int(round(g*255)), int(round(b*255)))
+
+    @property
+    def hsb(self):
+        h, s, b = self.hsb_float
+        return (int(round(h*360)), int(round(s*100)), int(round(b*100)))
 
     @property
     def hex(self):
         # Convert from float to hex
         r, g, b = [self._float_to_hex(x) for x in self._rgb]
-
         return '#' + r + g + b
+
+    def _apply_float_bounds(self, color_tuple):
+        color_list = list(color_tuple)
+        for i in range(len(color_list)):
+            c = float(color_list[i])
+            if c > 1.0:
+                color_list[i] = 1.0
+            elif c < 0:
+                color_list[i] = 0
+ 
+        return tuple(color_list)
+        
+
+    def str(self, color_tuple):
+        return ('%s,%s,%s' % (color_tuple[0], color_tuple[1], color_tuple[2]))
+
+    def round_floats(self, color_tuple):
+        a, b, c = color_tuple
+        return (round(a, 2), round(b, 2), round(c, 2))
 
     def _hex_to_rgb(self, c):
         # Remove hash if necessary
@@ -153,10 +224,18 @@ if __name__ == "__main__":
     if len(remaining_args) != 0:
         error('argument %s unrecognized' % (','.join(remaining_args)))
 
-    c = Color(sys.argv[-1])
+    # Create color
+    color_args = sys.argv[1:]
+    if len(color_args) == 0:
+        error("No color provided")
+    c = Color(','.join(color_args), iformat)
+
+    # Apply modifiers
 
     # print result
-    if oformat == 'hex':
-        print(c.hex)
-    if oformat == 'rgb':
-        print(c.rgb_float)
+    format_mapping = {'hex': c.hex,
+                      'rgb': c.str(c.rgb),
+                      'rgb_float': c.str(c.round_floats(c.rgb_float)),
+                      'hsb': c.str(c.hsb),
+                      'hsb_float': c.str(c.round_floats(c.hsb_float))}
+    print(format_mapping[oformat])

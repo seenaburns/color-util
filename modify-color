@@ -1,4 +1,4 @@
-#!/bin/python
+#! /usr/bin/env python
 """modify-color
 ------------
 A color manipulation utility for the commandline.
@@ -332,60 +332,59 @@ def arg_get(arg_name, accept, default):
 
     return arg_value
 
-if __name__ == "__main__":
-    if len(sys.argv) <= 1 or sys.argv[1] in ['help', '--help']:
-        print(__doc__)
-        sys.exit()
+if len(sys.argv) <= 1 or sys.argv[1] in ['help', '--help']:
+    print(__doc__)
+    sys.exit()
 
-    # Get formats args
-    formats = ['hex','rgb','hsb','rgb_float','hsb_float']
-    formats_accept = lambda x: x in formats;
-    oformat = arg_get('--out', lambda x: x in formats, 'hex')
-    iformat = arg_get('--in', lambda x: x in formats, 'hex')
+# Get formats args
+formats = ['hex','rgb','hsb','rgb_float','hsb_float']
+formats_accept = lambda x: x in formats;
+oformat = arg_get('--out', lambda x: x in formats, 'hex')
+iformat = arg_get('--in', lambda x: x in formats, 'hex')
 
-    # Get modifiers args
-    accepted_modifiers=['-h','--hue','-s','--saturation','-b','--brightness','--red','--green','--blue']
-    modifier_accept = lambda x: re.search('^[\+\-]{0,1}[0-9\.]{1,}[%]{0,1}$', x) != None
-    modifiers = []
-    args = [x for x in sys.argv]
-    for arg in args:
-        if arg not in accepted_modifiers:
-            continue
-        modifiers.append((arg, arg_get(arg, modifier_accept, '+0')))
+# Get modifiers args
+accepted_modifiers=['-h','--hue','-s','--saturation','-b','--brightness','--red','--green','--blue']
+modifier_accept = lambda x: re.search('^[\+\-]{0,1}[0-9\.]{1,}[%]{0,1}$', x) != None
+modifiers = []
+args = [x for x in sys.argv]
+for arg in args:
+    if arg not in accepted_modifiers:
+        continue
+    modifiers.append((arg, arg_get(arg, modifier_accept, '+0')))
 
-    # If flags remain error
-    remaining_args = [x for x in sys.argv if x[0] == '-']
-    if len(remaining_args) != 0:
-        error('argument %s unrecognized' % (','.join(remaining_args)))
+# If flags remain error
+remaining_args = [x for x in sys.argv if x[0] == '-']
+if len(remaining_args) != 0:
+    error('argument %s unrecognized' % (','.join(remaining_args)))
 
-    # Create color from remaining arguments or by reading stdin
-    color_args = sys.argv[1:]
-    color_str = ''
-    if len(color_args) == 0:
-        color_str = sys.stdin.read()
-    else:
-        color_str = ','.join(color_args)
-    if len(color_str) == 0:
-        error("No color provided (either stdin or as argument)")
+# Create color from remaining arguments or by reading stdin
+color_args = sys.argv[1:]
+color_str = ''
+if len(color_args) == 0:
+    color_str = sys.stdin.read()
+else:
+    color_str = ','.join(color_args)
+if len(color_str) == 0:
+    error("No color provided (either stdin or as argument)")
 
-    # Filter any unacceptable characters for non-hex iformats
-    if iformat != 'hex':
-        color_str = ''.join([char for char in color_str if char in '0123456789.,'])
-    # Create color object
-    c = Color(color_str, iformat)
+# Filter any unacceptable characters for non-hex iformats
+if iformat != 'hex':
+    color_str = ''.join([char for char in color_str if char in '0123456789.,'])
+# Create color object
+c = Color(color_str, iformat)
 
-    # Apply modifiers
-    mod_mapping = {'-h': 'hue', '-s': 'saturation', '-b': 'brightness'}
-    for m in accepted_modifiers:
-        if '--' in m:
-            mod_mapping[m] = m[2:]
-    for m in modifiers:
-        c.modify(mod_mapping[m[0]], m[1])
+# Apply modifiers
+mod_mapping = {'-h': 'hue', '-s': 'saturation', '-b': 'brightness'}
+for m in accepted_modifiers:
+    if '--' in m:
+        mod_mapping[m] = m[2:]
+for m in modifiers:
+    c.modify(mod_mapping[m[0]], m[1])
 
-    # print result
-    format_mapping = {'hex': c.hex,
-                      'rgb': c.str(c.rgb),
-                      'rgb_float': c.str(c.round_floats(c.rgb_float)),
-                      'hsb': c.str(c.hsb),
-                      'hsb_float': c.str(c.round_floats(c.hsb_float))}
-    print(format_mapping[oformat])
+# print result
+format_mapping = {'hex': c.hex,
+                  'rgb': c.str(c.rgb),
+                  'rgb_float': c.str(c.round_floats(c.rgb_float)),
+                  'hsb': c.str(c.hsb),
+                  'hsb_float': c.str(c.round_floats(c.hsb_float))}
+print(format_mapping[oformat])

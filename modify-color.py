@@ -60,34 +60,73 @@ def error(reason):
 class Color(object):
     """Color object, stores colors internally as RGB float"""
     def __init__(self, color_str, color_format="hex"):
-        # Default
-        self._rgb = (0, 0, 0)
-        
+        # Internal values, stored as integer numbers
+        # red,green,blue from [0-255]
+        # hue from [0-360]
+        # saturation, brightness from [0-100]
+        self.red = 0
+        self.green = 0
+        self.blue = 0
+        self.hue = 0
+        self.saturation = 0
+        self.brightness = 0
+        # If input mode is rgb, derive hsb from rgb
+        # otherwise derive rgb from hsb
+        self.input_mode = 'rgb'
+
+        # Input hex
         if color_format == "hex":
-            self._rgb = self._hex_to_rgb(color_str)
+            r, g, b = self._hex_to_rgb(color_str)
+            self.red = r
+            self.green = g
+            self.blue = b
+
+        # Input rgb/rgb_float
         elif 'rgb' in color_format:
             # In format r,g,b
-            is_float = color_format == 'rgb_float'
             try:
                 # Extract
-                r, g, b = [x for x in color_str.split(',')]
-                r = self.normalize(r, 'red', is_float)
-                g = self.normalize(g, 'green', is_float)
-                b = self.normalize(b, 'blue', is_float)
-                self._rgb = (r, g, b)
+                r, g, b = [float(x)for x in color_str.split(',')]
+                # Convert floats to ints if neccessary
+                if color_format == 'rgb_float':
+                    r = self.float_to_int(r, 'red')
+                    g = self.float_to_int(g, 'green')
+                    b = self.float_to_int(b, 'blue')
+                self.red = r
+                self.green = g
+                self.blue = b
             except ValueError:
                 error("Could not parse %s %s" % (color_format, color_str))
+
+        # Input hsb/hsb_float
         elif 'hsb' in color_format:
             # In format h,s,b
-            is_float = color_format == 'hsb_float'
+            self.input_mode = 'hsb'
             try:
-                h, s, b = [x for x in color_str.split(',')]
-                h = self.normalize(h, 'hue', is_float)
-                s = self.normalize(s, 'saturation', is_float)
-                b = self.normalize(b, 'brightness', is_float)
-                self._rgb = colorsys.hsv_to_rgb(h,s,b)
+                h, s, b = [float(x) for x in color_str.split(',')]
+                # Convert floats to ints if neccessary
+                if color_format == 'hsb_float':
+                    h = self.float_to_int(h, 'hue')
+                    s = self.float_to_int(s, 'saturation')
+                    b = self.float_to_int(b, 'brightness')
+                self.hue = h
+                self.saturation = s
+                self.brightness =b
             except ValueError:
                 error("Could not parse %s %s" % (color_format, color_str))
+
+        # Derive hsb/rgb from the other
+        if self.input_mode == 'rgb':
+            self.hue, self.saturation, self.brightness = colorsys.rgb_to_hsv(self.red, self.green, self.blue)
+        else:
+            self.red, self.green, self.blue = colorsys.hsv_to_rgb(self.hue, self.saturation, self.brightness)
+        
+
+    def __str__(self):
+        return "%s,%s,%s,%s,%s,%s,%s" % (self.red,self.green,self.blue,self.hue,self.saturation,self.brightness,self.hex)
+
+    def __repr__(self):
+        return self.__str__()
 
     def modify(self, mtype, amount):
         # Define the operation
@@ -130,11 +169,11 @@ class Color(object):
 
     @property
     def rgb_float(self):
-        return self._rgb
+        return self.red, self.green, self.blue
 
     @property
     def hsb_float(self):
-        r, g, b = self._rgb
+        r, g, b = self.red, self.blue, self.green
         h, s, b = colorsys.rgb_to_hsv(r, g, b)
         return (h, s, b)
     @hsb_float.setter
@@ -144,7 +183,7 @@ class Color(object):
 
     @property
     def rgb(self):
-        r, g, b = self._rgb
+        r, g, b = self.red, self.blue, self.green
         return (int(round(r*255)), int(round(g*255)), int(round(b*255)))
 
     @property
@@ -155,63 +194,9 @@ class Color(object):
     @property
     def hex(self):
         # Convert from float to hex
-        r, g, b = [self._float_to_hex(x) for x in self._rgb]
+        r, g, b = [self._float_to_hex(x/255.0) for x in [self.red, self.blue, self.green]]
         return '#' + r + g + b
 
-    # All individual properties are floats
-    @property
-    def hue(self):
-        return self.hsb_float[0]
-    @hue.setter
-    def hue(self, value):
-        h, s, b = self.hsb_float
-        h = self.apply_float_bounds(value)
-        self.hsb_float = (h, s, b)
-
-    @property
-    def saturation(self):
-        return self.hsb_float[1]
-    @saturation.setter
-    def saturation(self, value):
-        h, s, b = self.hsb_float
-        s = self.apply_float_bounds(value)
-        self.hsb_float = (h, s, b)
-
-    @property
-    def brightness(self):
-        return self.hsb_float[2]
-    @brightness.setter
-    def brightness(self, value):
-        h, s, b = self.hsb_float
-        b = self.apply_float_bounds(value)
-        self.hsb_float = (h, s, b)
-
-    @property
-    def red(self):
-        return self.rgb_float[0]
-    @red.setter
-    def red(self, value):
-        r, g, b = self.rgb_float
-        r = self.apply_float_bounds(value)
-        self._rgb = (r, g, b)
-
-    @property
-    def green(self):
-        return self.rgb_float[1]
-    @green.setter
-    def green(self, value):
-        r, g, b = self.rgb_float
-        g = self.apply_float_bounds(value)
-        self._rgb = (r, g, b)
-    
-    @property
-    def blue(self):
-        return self.rgb_float[2]
-    @blue.setter
-    def blue(self, value):
-        r, g, b = self.rgb_float
-        b = self.apply_float_bounds(value)
-        self._rgb = (r, g, b)
         
     def str(self, color_tuple):
         return ('%s,%s,%s' % (color_tuple[0], color_tuple[1], color_tuple[2]))

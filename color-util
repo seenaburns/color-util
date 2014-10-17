@@ -1,16 +1,16 @@
 #! /usr/bin/env python
-"""modify-color
+"""color-util
 ------------
 A color manipulation utility for the commandline.
 
 Usage:
-    modify-color [options] [<modifier> <amount>] color
+    color-util [options] [<modifier> <amount>] color
 
 Examples:
-    echo "#001122" | modify-color --out hsb --brightness +10%
-    modify-color --in rgb --out rgb_float 125,255,50
-    modify-color --red 100 FF3377
-    modify-color --hue 360 --brightness 100 --saturation 50 "#000000" | modify-color --red +10%
+    echo "#001122" | color-util --out hsb --brightness +10%
+    color-util --in rgb --out rgb_float 125,255,50
+    color-util --red 100 FF3377
+    color-util --hue 360 --brightness 100 --saturation 50 "#000000" | color-util --red +10%
 
 Color:
     Format specified by --in, can be passed in as an argument or through stdin.

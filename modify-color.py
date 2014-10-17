@@ -250,22 +250,6 @@ class Color(object):
         else:
             raise Exception("Unknown vtype %s" % (vtype))
 
-    def normalize(self, v, vtype, is_float=False):
-        # Normalize, e.g. for hue int(hue)/360
-        # Skip floats
-        if is_float:
-            return self.apply_float_bounds(float(v))
-
-        # Floats about 1 not allowed, e.g. no 45.3
-        new_v = int(v)
-        if vtype == 'hue':
-            new_v /= 360.0
-        elif vtype in ['brightness', 'saturation']:
-            new_v /= 100.0
-        elif vtype in ['red', 'blue', 'green']:
-            new_v /= 255.0
-        return self.apply_float_bounds(new_v)
-
     def apply_float_bounds(self, v):
         v = float(v)
         if v > 1.0:
